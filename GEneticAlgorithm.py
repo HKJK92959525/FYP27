@@ -3,30 +3,59 @@ import random
 import matplotlib.pyplot as plt
 
 # 固定参数定义
-I = 10  # 需求点数量，手动指定
-J = 5  # 医院数量
+I = 15  # 需求点数量，手动指定
+J = 6  # 医院数量
 M = 100 # 总预算
-C = 10  # 单个平台建设费用
+C = 50  # 单个平台建设费用
 T = 9   # 最大响应时间（分钟）
-V = 0.8 # 无人机速度
+V = 1 # 无人机速度
 
 # 固定的距离矩阵和需求量
 # 需求点到设施点的距离矩阵 (I x J)
 dij = [
-    [10, 15, 12, 9, 8],
-    [5, 9, 7, 8, 6],
-    [8, 12, 11, 13, 9],
-    [6, 10, 8, 7, 15],
-    [9, 11, 14, 8, 7],
-    [12, 13, 10, 9, 6],
-    [11, 14, 12, 15, 10],
-    [7, 5, 9, 8, 13],
-    [6, 9, 7, 11, 12],
-    [10, 8, 6, 9, 11]
+  [15.13, 31.14, 35.51, 11.4, 24.17, 41.76],
+  [16.55, 20.12, 24, 33.54, 17, 12.21],
+  [10.63, 17.03, 26.25, 25.5, 16, 18.97],
+  [20.02, 36.77, 38.48, 14.14, 27.89, 47.43],
+  [23.85, 19.65, 46.4, 8.6, 34.41, 38.47],
+  [27.29, 2.83, 45.35, 26.08, 35.13, 24.7],
+  [32.57, 7.21, 48.26, 33.29, 39.12, 22.67],
+  [17.46, 43.17, 19, 33.11, 14.21, 42.45],
+  [29.15, 9.85, 49.4, 21.93, 38.33, 31.76],
+  [24.84, 11.66, 36.01, 34.53, 28.46, 10.3],
+  [35.81, 23.35, 40.5, 47.68, 36.4, 8.06],
+  [25.46, 49.24, 33.02, 31, 26.93, 53.6],
+  [24.41, 41.44, 5.83, 46.62, 14.32, 28.44],
+  [27.17, 35, 18.44, 47.76, 20.62, 17.12],
+  [28.07, 8.54, 48.1, 21.93, 37.11, 30.41]
 ]
 
 # 需求量 (I)
-wi = [3, 4, 5, 2, 6, 3, 4, 5, 2, 7]
+wi = [4, 4, 2, 1, 9, 2, 3, 5, 1, 5, 3, 2, 6, 7, 5]
+
+# 需求点和医院的位置坐标（从用户提供的数据中读取）
+demand_points = [(45, 21), (15, 26), (23, 27), (50, 18), (43, 39), (26, 46), (20, 50), (33, 48), (14, 38), (1, 40), (48, 1), (10, 5), (3, 16), (10, 8), (32, 47)]
+facility_points = [(30, 19), (24, 44), (15, 2), (48, 32), (23, 11), (5, 33)]
+
+# 可视化需求点和医院的位置
+def plot_points():
+    plt.figure(figsize=(8, 6))
+    
+    # 绘制需求点
+    for i, (x, y) in enumerate(demand_points):
+        plt.scatter(x, y, c='blue', marker='o')
+        plt.text(x + 0.1, y + 0.1, f'Demand {i + 1}', fontsize=9)
+    
+    # 绘制医院位置
+    for j, (x, y) in enumerate(facility_points):
+        plt.scatter(x, y, c='red', marker='^')
+        plt.text(x + 0.1, y + 0.1, f'Facility {j + 1}', fontsize=9)
+    
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.title('Locations of Demand Points and Facilities')
+    plt.grid(True)
+    plt.show()
 
 # 目标函数：计算总覆盖需求量
 def objective_function(x):
@@ -53,15 +82,23 @@ def evaluate_population(population):
     # 并将这些适应度值组成一个列表返回
     return [objective_function(individual) for individual in population]
 
-# 轮盘赌
-def select(population, fitness):  # 获取适应度列表中的最小值
-    min_fitness = min(fitness) 
-    if min_fitness < 0: # 如果存在负适应度值，将所有适应度值平移为非负值
-        fitness = [f - min_fitness for f in fitness] # 将每个适应度值加上 min_fitness 的绝对值
-    total_fitness = sum(fitness) # 计算总适应度
-    probabilities = [f / total_fitness for f in fitness] # 计算每个个体的选择概率，适应度值越大概率越高
-    selected_indices = np.random.choice(len(population), size=len(population), p=probabilities) # 随机选择
-    return [population[i] for i in selected_indices] # 将选中的提取出来得到新种群
+# 轮盘赌选择函数
+def select(population, fitness):
+    min_fitness = min(fitness)
+    if min_fitness < 0:
+        fitness = [f - min_fitness for f in fitness]  # 将所有适应度值平移为非负值
+    total_fitness = sum(fitness)
+    
+    # 如果总适应度为 0，避免除以零的错误
+    if total_fitness == 0:
+        # 直接返回种群，或者随机选择一些个体
+        return random.choices(population, k=len(population))
+    
+    # 计算每个个体的选择概率
+    probabilities = [f / total_fitness for f in fitness]
+    selected_indices = np.random.choice(len(population), size=len(population), p=probabilities)
+    return [population[i] for i in selected_indices]
+
 
 # 交叉
 def crossover(dad, mom):
@@ -122,11 +159,11 @@ best_solution, fitness_over_time = genetic_algorithm(bounds, population_size, ge
 
 # 输出最佳解
 best_solution_value = objective_function(best_solution)
-print("最佳设施组合:", best_solution)
-print("最大覆盖的需求总量:", best_solution_value)
-print("需求点数量:", I)
-print("每个需求点的需求量:", wi)
-print("总需求量:", sum(wi))
+print("Best Solution:", best_solution)
+print("Maximum Coverage:", best_solution_value)
+print("Number of Demand Points:", I)
+print("Demand Value of Demand Points:", wi)
+print("Total Demand Value:", sum(wi))
 
 # 绘制适应度变化图
 plt.plot(fitness_over_time)
@@ -134,3 +171,6 @@ plt.xlabel('Generation')
 plt.ylabel('Best Fitness')
 plt.title('Genetic Algorithm Optimization for Facility Location')
 plt.show()
+
+# 绘制需求点和设施点的位置
+plot_points()
