@@ -1,0 +1,139 @@
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+
+I = 15 
+J = 6  
+M = 100 
+C = 50 
+T = 9    
+V = 1 
+
+dij = [
+    [15.13, 31.14, 35.51, 11.4, 24.17, 41.76],
+    [16.55, 20.12, 24.0, 33.54, 17.0, 12.21],
+    [10.63, 17.03, 26.25, 25.5, 16.0, 18.97],
+    [20.02, 36.77, 38.48, 14.14, 27.89, 47.43],
+    [23.85, 19.65, 46.4, 8.6, 34.41, 38.47],
+    [27.29, 2.83, 45.35, 26.08, 35.13, 24.7],
+    [32.57, 7.21, 48.26, 33.29, 39.12, 22.67],
+    [17.46, 43.17, 19.0, 33.11, 14.21, 42.45],
+    [29.15, 9.85, 49.4, 21.93, 38.33, 31.76],
+    [24.84, 11.66, 36.01, 34.53, 28.46, 10.3],
+    [35.81, 23.35, 40.5, 47.68, 36.4, 8.06],
+    [25.46, 49.24, 33.02, 31.0, 26.93, 53.6],
+    [24.41, 41.44, 5.83, 46.62, 14.32, 28.44],
+    [27.17, 35.0, 18.44, 47.76, 20.62, 17.12],
+    [28.07, 8.54, 48.1, 21.93, 37.11, 30.41]
+]
+
+wi = [4, 4, 2, 1, 9, 2, 3, 5, 1, 5, 3, 2, 6, 7, 5]
+
+max_distance = V * T
+
+def objective_function(solution):
+    selected_facilities = solution  
+    total_covered_demand = 0
+    
+    for i in range(I):
+        is_covered = any(
+            selected_facilities[j] == 1 and dij[i][j] <= max_distance
+            for j in range(J)
+        )
+        if is_covered:
+            total_covered_demand += wi[i]
+    return total_covered_demand
+
+def get_coverage_details(solution):
+    selected_facilities = solution
+    coverage_details = {j: [] for j in range(J) if selected_facilities[j] == 1} 
+    for i in range(I):
+        for j in range(J):
+            if selected_facilities[j] == 1 and dij[i][j] <= max_distance:
+                coverage_details[j].append(i + 1) 
+    return coverage_details
+
+def initialize_population(size):
+    population = []
+    for _ in range(size):
+        facilities = [random.choice([0, 1]) for _ in range(J)]
+        while sum(facilities) * C > M:
+            facilities[random.randint(0, J - 1)] = 0
+        population.append(facilities)
+    return population
+
+def evaluate_population(population):
+    return [objective_function(individual) for individual in population]
+
+def select(population, fitness):
+    total_fitness = sum(fitness)
+    if total_fitness == 0:  
+        probabilities = [1 / len(fitness) for _ in fitness]
+    else:
+        probabilities = [f / total_fitness for f in fitness]
+    
+    selected_indices = np.random.choice(range(len(population)), size=len(population), p=probabilities, replace=True)
+    return [population[i] for i in selected_indices]
+
+def crossover(parent1, parent2):
+    point = random.randint(1, len(parent1) - 1)
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+    return child1, child2
+
+def mutate(individual, mutation_rate):
+    for i in range(len(individual)):
+        if random.random() < mutation_rate:
+            individual[i] = 1 - individual[i]
+    while sum(individual) * C > M:
+        individual[random.randint(0, len(individual) - 1)] = 0
+    return individual
+
+def genetic_algorithm(population_size, generations, mutation_rate):
+    population = initialize_population(population_size)
+    best_fitness_over_time = []
+    best_solution = None
+    
+    for generation in range(generations):
+        fitness = evaluate_population(population)
+        best_fitness = max(fitness)
+        best_fitness_over_time.append(best_fitness)
+        
+        if best_solution is None or objective_function(best_solution) < best_fitness:
+            best_solution = population[fitness.index(best_fitness)]
+        
+        selected_population = select(population, fitness)
+        new_population = []
+        
+        for i in range(0, len(selected_population), 2):
+            parent1 = selected_population[i]
+            parent2 = selected_population[(i + 1) % len(selected_population)]
+            child1, child2 = crossover(parent1, parent2)
+            new_population.append(mutate(child1, mutation_rate))
+            new_population.append(mutate(child2, mutation_rate))
+        
+        population = new_population[:population_size]
+        print(f"Generation {generation + 1}, Best Fitness: {best_fitness}")
+    
+    return best_solution, best_fitness_over_time
+
+population_size = 20
+generations = 50
+mutation_rate = 0.1
+
+best_solution, fitness_over_time = genetic_algorithm(population_size, generations, mutation_rate)
+best_coverage = objective_function(best_solution)
+coverage_details = get_coverage_details(best_solution)
+
+print(f"Best solution：{best_solution}")
+print(f"Maximum Coverage：{best_coverage}")
+print("Coverage Details：")
+for facility, demands in coverage_details.items():
+    print(f"Facility {facility + 1} covered：{demands}")
+
+plt.plot(range(1, generations + 1), fitness_over_time, marker='o')
+plt.xlabel('Generation')
+plt.ylabel('Best Fitness')
+plt.title('Genetic Algorithm Optimization for UAV Facility Location')
+plt.grid(True)
+plt.show()
