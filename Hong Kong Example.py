@@ -1,3 +1,5 @@
+# This python code is to convert the hospital geo coordinate into distance matrix
+
 import math
 import csv
 
